@@ -38,8 +38,8 @@ export default {
       if (this.whoami.globalAdmin) {
         base.push({ key: 'tenant', label: 'Tenant' })
       }
-      base.push({ key: 'dateCreated', label: 'Created' })
-      base.push({ key: 'dateExpired', label: 'Expires' })
+      base.push({ key: 'dateCreated', label: 'Created', type: 'date' })
+      base.push({ key: 'dateExpired', label: 'Expires', type: 'date' })
       return base
     },
     facets() {

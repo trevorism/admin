@@ -8,6 +8,7 @@ import {
   listUsers,
   updateUserPermissions
 } from '../src/utils/userApi'
+import { listTenants } from '../src/utils/tenantApi'
 import { stubs } from './stubs'
 
 vi.mock('../src/utils/userApi', () => ({
@@ -16,6 +17,12 @@ vi.mock('../src/utils/userApi', () => ({
   deactivateUser: vi.fn(),
   updateUserPermissions: vi.fn(),
   deleteUser: vi.fn()
+}))
+
+vi.mock('../src/utils/tenantApi', () => ({
+  listTenants: vi.fn(),
+  getMyTenant: vi.fn(),
+  createTenant: vi.fn()
 }))
 
 function user(overrides) {
@@ -55,6 +62,7 @@ describe('UsersTab', () => {
     deactivateUser.mockReset().mockResolvedValue()
     updateUserPermissions.mockReset().mockResolvedValue()
     deleteUser.mockReset().mockResolvedValue()
+    listTenants.mockReset().mockResolvedValue([])
   })
 
   it('lists the users it loaded', async () => {
@@ -177,11 +185,57 @@ describe('UsersTab', () => {
     expect(wrapper.vm.error).toBe('Could not deactivate the user.')
   })
 
-  it('shows a tenant column only for a global admin', async () => {
+  it('groups by tenant only for a global admin', async () => {
     const asGlobal = await mountTab([user()])
-    expect(asGlobal.vm.columns.map((column) => column.key)).toContain('tenant')
+    expect(asGlobal.vm.groupBy).toEqual({ key: 'tenant', label: expect.any(Function) })
 
     const asTenantAdmin = await mountTab([user()], whoami({ globalAdmin: false, tenantAdmin: true, tenant: 't1' }))
-    expect(asTenantAdmin.vm.columns.map((column) => column.key)).not.toContain('tenant')
+    expect(asTenantAdmin.vm.groupBy).toBeNull()
+  })
+
+  it('renders one heading per tenant so the rows are visually separated', async () => {
+    listTenants.mockResolvedValue([
+      { guid: 'g-a', name: 'Acme' },
+      { guid: 'g-b', name: 'Globex' }
+    ])
+    const wrapper = await mountTab([
+      user({ username: 'alice', tenant: 'g-a' }),
+      user({ username: 'bob', tenant: 'g-b' }),
+      user({ username: 'carol', tenant: 'g-a' })
+    ])
+
+    const headings = wrapper.findAll('tbody th').map((heading) => heading.text())
+    expect(headings).toHaveLength(2)
+    expect(headings[0]).toContain('Acme')
+    expect(headings[0]).toContain('2 users')
+    expect(headings[1]).toContain('Globex')
+    expect(headings[1]).toContain('1 user')
+  })
+
+  it('falls back to the guid when the tenant names cannot be loaded', async () => {
+    listTenants.mockRejectedValue(new Error('forbidden'))
+    const wrapper = await mountTab([user({ tenant: 'g-a' })])
+
+    expect(wrapper.vm.error).toBe('')
+    expect(wrapper.find('tbody th').text()).toContain('g-a')
+  })
+
+  it('labels the tenantless users rather than leaving a blank heading', async () => {
+    const wrapper = await mountTab([user({ tenant: '' })])
+    expect(wrapper.find('tbody th').text()).toContain('No tenant')
+  })
+
+  it('keeps the tenant searchable for a global admin now the column is gone', async () => {
+    const wrapper = await mountTab([user()])
+
+    expect(wrapper.vm.columns.map((column) => column.key)).not.toContain('tenant')
+    expect(wrapper.vm.searchFields).toContain('tenant')
+  })
+
+  it('shows a plain date instead of the raw timestamp', async () => {
+    const wrapper = await mountTab([user({ dateCreated: '2026-08-15T10:30:00.000Z' })])
+
+    expect(wrapper.text()).not.toContain('2026-08-15T10:30:00.000Z')
+    expect(wrapper.text()).toContain('2026')
   })
 })

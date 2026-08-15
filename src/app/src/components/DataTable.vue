@@ -1,5 +1,16 @@
 <script>
 import { filterRows, nextSortDirection, sortRows } from '../utils/sortFilter'
+import { formatDate } from '../utils/dateFormat'
+
+function compareGroups(left, right) {
+  if (left.value && !right.value) {
+    return -1
+  }
+  if (!left.value && right.value) {
+    return 1
+  }
+  return left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' })
+}
 
 export default {
   props: {
@@ -12,7 +23,8 @@ export default {
     emptyText: { type: String, default: 'Nothing to show yet.' },
     searchFields: { type: Array, default: null },
     initialSort: { type: Object, default: null },
-    facets: { type: Array, default: () => [] }
+    facets: { type: Array, default: () => [] },
+    groupBy: { type: Object, default: null }
   },
   emits: ['refresh'],
   data() {
@@ -37,9 +49,39 @@ export default {
     },
     hasRows() {
       return this.visibleRows.length > 0
+    },
+    columnCount() {
+      return this.columns.length + (this.$slots.actions ? 1 : 0)
+    },
+    groups() {
+      if (!this.groupBy) {
+        return [{ key: 'all', value: '', label: '', rows: this.visibleRows }]
+      }
+      const buckets = new Map()
+      this.visibleRows.forEach((row) => {
+        const value = row?.[this.groupBy.key] || ''
+        if (!buckets.has(value)) {
+          buckets.set(value, [])
+        }
+        buckets.get(value).push(row)
+      })
+      return [...buckets.entries()]
+        .map(([value, rows]) => ({
+          key: value || 'ungrouped',
+          value,
+          label: this.groupLabel(value),
+          rows
+        }))
+        .sort(compareGroups)
     }
   },
   methods: {
+    groupLabel(value) {
+      if (typeof this.groupBy?.label === 'function') {
+        return this.groupBy.label(value)
+      }
+      return value || 'Ungrouped'
+    },
     keyFor(row, index) {
       return row?.[this.rowKey] ?? index
     },
@@ -67,6 +109,9 @@ export default {
       const value = row?.[column.key]
       if (value === null || value === undefined) {
         return ''
+      }
+      if (column.type === 'date') {
+        return formatDate(value)
       }
       if (typeof value === 'boolean') {
         return value ? 'Yes' : 'No'
@@ -128,8 +173,13 @@ export default {
               <th v-if="$slots.actions">Actions</th>
             </tr>
           </thead>
-          <tbody>
-            <tr v-for="(row, index) in visibleRows" :key="keyFor(row, index)">
+          <tbody v-for="group in groups" :key="group.key" class="row-group">
+            <tr v-if="groupBy" class="group-row">
+              <th :colspan="columnCount" scope="colgroup">
+                <slot name="group-header" :group="group">{{ group.label }}</slot>
+              </th>
+            </tr>
+            <tr v-for="(row, index) in group.rows" :key="keyFor(row, index)">
               <td v-for="column in columns" :key="column.key">
                 <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]">
                   {{ display(row, column) }}
@@ -186,6 +236,18 @@ export default {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--va-background-border);
   vertical-align: middle;
+}
+
+.admin-table .group-row th {
+  background: var(--va-background-element);
+  border-top: 2px solid var(--va-background-border);
+  border-bottom: 1px solid var(--va-background-border);
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+}
+
+.admin-table .row-group:first-of-type .group-row th {
+  border-top: none;
 }
 
 .admin-table th.sortable {

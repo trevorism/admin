@@ -3,6 +3,7 @@ import DataTable from './DataTable.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PermissionEditor from './PermissionEditor.vue'
 import { describePermissions } from '../utils/permissions'
+import { listTenants } from '../utils/tenantApi'
 import {
   approveUser,
   deactivateUser,
@@ -19,6 +20,7 @@ export default {
   data() {
     return {
       users: [],
+      tenantNames: {},
       loading: false,
       error: '',
       busyKey: null,
@@ -31,19 +33,25 @@ export default {
   },
   computed: {
     columns() {
-      const base = [
+      return [
         { key: 'username', label: 'Username' },
         { key: 'email', label: 'Email' },
         { key: 'admin', label: 'Admin' },
         { key: 'active', label: 'Active' },
-        { key: 'permissions', label: 'Permissions' }
+        { key: 'permissions', label: 'Permissions' },
+        { key: 'dateCreated', label: 'Created', type: 'date' },
+        { key: 'dateExpired', label: 'Expires', type: 'date' }
       ]
-      if (this.whoami.globalAdmin) {
-        base.push({ key: 'tenant', label: 'Tenant' })
+    },
+    searchFields() {
+      const fields = this.columns.map((column) => column.key)
+      return this.whoami.globalAdmin ? [...fields, 'tenant'] : fields
+    },
+    groupBy() {
+      if (!this.whoami.globalAdmin) {
+        return null
       }
-      base.push({ key: 'dateCreated', label: 'Created' })
-      base.push({ key: 'dateExpired', label: 'Expires' })
-      return base
+      return { key: 'tenant', label: (guid) => this.tenantLabel(guid) }
     },
     facets() {
       return [
@@ -116,11 +124,30 @@ export default {
       this.error = ''
       try {
         this.users = await listUsers()
+        if (this.whoami.globalAdmin) {
+          await this.loadTenantNames()
+        }
       } catch (error) {
         this.error = error?.response?.data?.error || 'Could not load users.'
       } finally {
         this.loading = false
       }
+    },
+    async loadTenantNames() {
+      try {
+        const tenants = await listTenants()
+        this.tenantNames = Object.fromEntries(
+          tenants.filter((tenant) => tenant.guid).map((tenant) => [tenant.guid, tenant.name])
+        )
+      } catch {
+        this.tenantNames = {}
+      }
+    },
+    tenantLabel(guid) {
+      if (!guid) {
+        return 'No tenant'
+      }
+      return this.tenantNames[guid] || guid
     },
     // A global admin reads across every tenant, but delete only reaches their own
     // namespace, so the action is hidden rather than offered and then refused.
@@ -184,10 +211,18 @@ export default {
       :loading="loading"
       :error="error"
       :facets="facets"
+      :search-fields="searchFields"
+      :group-by="groupBy"
       :initial-sort="{ key: 'username', dir: 'asc' }"
       empty-text="No users are visible to you."
       @refresh="refresh"
     >
+      <template #group-header="{ group }">
+        <span class="group-name">{{ group.label }}</span>
+        <code v-if="group.value && group.label !== group.value" class="group-guid">{{ group.value }}</code>
+        <span class="group-count">{{ group.rows.length }} {{ group.rows.length === 1 ? 'user' : 'users' }}</span>
+      </template>
+
       <template #cell-admin="{ row }">
         <va-badge :color="row.admin ? 'info' : 'secondary'" :text="row.admin ? 'Admin' : 'Standard'" />
       </template>
@@ -290,6 +325,24 @@ export default {
 </template>
 
 <style scoped>
+.group-name {
+  font-weight: 600;
+}
+
+.group-guid {
+  margin-left: 0.5rem;
+  color: var(--va-secondary);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.group-count {
+  margin-left: 0.75rem;
+  color: var(--va-secondary);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
 .approve-message {
   margin-bottom: 0.75rem;
 }

@@ -130,6 +130,68 @@ describe('DataTable', () => {
     expect(wrapper.findAll('tbody td').map((cell) => cell.text())).toEqual(['Yes', 'No'])
   })
 
+  it('renders no group heading when nothing is grouped', () => {
+    expect(mountTable().findAll('tbody th')).toHaveLength(0)
+  })
+
+  it('splits the rows into a tbody per group', () => {
+    const wrapper = mountTable({
+      groupBy: { key: 'tenant' },
+      rows: [
+        { id: '1', username: 'bob', tenant: 'b' },
+        { id: '2', username: 'alice', tenant: 'a' },
+        { id: '3', username: 'carol', tenant: 'a' }
+      ]
+    })
+
+    const groups = wrapper.findAll('tbody')
+    expect(groups).toHaveLength(2)
+    expect(groups[0].find('th').text()).toBe('a')
+    expect(groups[0].findAll('tr')).toHaveLength(3)
+    expect(groups[1].find('th').text()).toBe('b')
+  })
+
+  it('labels a group through the supplied function', () => {
+    const wrapper = mountTable({
+      groupBy: { key: 'tenant', label: (value) => `Tenant ${value}` },
+      rows: [{ id: '1', username: 'bob', tenant: 'b' }]
+    })
+
+    expect(wrapper.find('tbody th').text()).toBe('Tenant b')
+  })
+
+  it('sorts the ungrouped rows last', () => {
+    const wrapper = mountTable({
+      groupBy: { key: 'tenant' },
+      rows: [
+        { id: '1', username: 'bob', tenant: '' },
+        { id: '2', username: 'alice', tenant: 'a' }
+      ]
+    })
+
+    expect(wrapper.findAll('tbody th').map((heading) => heading.text())).toEqual(['a', 'Ungrouped'])
+  })
+
+  it('spans the group heading across the actions column too', () => {
+    const wrapper = mountTable(
+      { groupBy: { key: 'tenant' }, rows: [{ id: '1', username: 'bob', tenant: 'a' }] },
+      { actions: '<button>Go</button>' }
+    )
+
+    expect(wrapper.find('tbody th').attributes('colspan')).toBe('3')
+  })
+
+  it('formats a date column instead of printing the timestamp', () => {
+    const wrapper = mountTable({
+      columns: [{ key: 'dateCreated', label: 'Created', type: 'date' }],
+      rows: [{ id: '1', dateCreated: '2026-08-15T10:30:00.000Z' }]
+    })
+
+    const cell = wrapper.find('tbody td').text()
+    expect(cell).not.toContain('T10:30')
+    expect(cell).toContain('2026')
+  })
+
   it('emits refresh when the refresh button is pressed', async () => {
     const wrapper = mountTable()
     const refresh = wrapper.findAll('button').find((button) => button.text().includes('Refresh'))

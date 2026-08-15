@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+:root,
+:host {
+  --va-form-element-border-width: 1px;
+  --va-form-element-border-radius: 0.25rem;
+}
