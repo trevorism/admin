@@ -1,3 +1,7 @@
+## 0.2.0
+
+First implementation
+
 ## 0.1.0
 
-Initial release
+Cloned shell from template
