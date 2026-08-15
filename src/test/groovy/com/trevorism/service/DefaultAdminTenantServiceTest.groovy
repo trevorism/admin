@@ -1,5 +1,6 @@
 package com.trevorism.service
 
+import com.trevorism.http.util.InvalidRequestException
 import com.trevorism.https.SecureHttpClient
 import com.trevorism.model.Tenant
 import com.trevorism.secure.Roles
@@ -64,6 +65,27 @@ class DefaultAdminTenantServiceTest {
 
         assert svc.currentTenant(caller(Roles.ADMIN, null)) == null
         assert !called
+    }
+
+    // Upstream answers 204 with no body when the caller carries no tenant claim.
+    @Test
+    void testAnEmptyBodyFromUpstreamReadsAsNoTenant() {
+        def svc = service([get: { String url -> null }])
+
+        assert svc.currentTenant(caller(Roles.TENANT_ADMIN, "g1")) == null
+    }
+
+    // Upstream answers 404 when the caller's guid matches no tenant record, which
+    // the shared client turns into an InvalidRequestException carrying the status.
+    @Test
+    void testAnUnresolvableTenantGuidSurfacesAsNotFound() {
+        def svc = service([get: { String url ->
+            throw new InvalidRequestException(new RuntimeException("not found"), 404)
+        }])
+
+        assert assertThrows(DownstreamException) {
+            svc.currentTenant(caller(Roles.TENANT_ADMIN, "ghost"))
+        }.status == 404
     }
 
     @Test
