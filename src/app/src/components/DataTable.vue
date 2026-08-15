@@ -116,7 +116,11 @@ export default {
                 :key="column.key"
                 :aria-sort="ariaSort(column)"
                 :class="{ sortable: column.sortable !== false }"
+                :tabindex="column.sortable === false ? undefined : 0"
+                :role="column.sortable === false ? undefined : 'button'"
                 @click="toggleSort(column)"
+                @keydown.enter.prevent="toggleSort(column)"
+                @keydown.space.prevent="toggleSort(column)"
               >
                 {{ column.label }}
                 <span class="sort-indicator">{{ sortIndicator(column) }}</span>
@@ -187,6 +191,11 @@ export default {
 .admin-table th.sortable {
   cursor: pointer;
   user-select: none;
+}
+
+.admin-table th.sortable:focus-visible {
+  outline: 2px solid var(--va-primary);
+  outline-offset: -2px;
 }
 
 .sort-indicator {

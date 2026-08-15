@@ -9,7 +9,16 @@ import java.text.SimpleDateFormat
 
 class Mappers {
 
-    private static final String ISO_FORMAT = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+    private static final TimeZone UTC = TimeZone.getTimeZone("UTC")
+
+    private static final Map<String, Boolean> PARSE_PATTERNS = [
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"  : true,
+            "yyyy-MM-dd'T'HH:mm:ss'Z'"      : true,
+            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"  : false,
+            "yyyy-MM-dd'T'HH:mm:ssXXX"      : false,
+            "MMM d, yyyy, h:mm:ss a"        : false,
+            "yyyy-MM-dd"                    : false
+    ].asImmutable()
 
     static Object parse(String json) {
         if (!json?.trim()) {
@@ -34,12 +43,13 @@ class Mappers {
     }
 
     static User toUser(Map raw) {
-        if (!raw?.username) {
+        String username = string(raw?.username)
+        if (!username) {
             return null
         }
         return new User(
                 id: string(raw.id),
-                username: string(raw.username),
+                username: username,
                 email: string(raw.email),
                 image: string(raw.image),
                 admin: bool(raw.admin),
@@ -56,13 +66,15 @@ class Mappers {
     }
 
     static App toApp(Map raw) {
-        if (!raw?.appName && !raw?.clientId) {
+        String appName = string(raw?.appName)
+        String clientId = string(raw?.clientId)
+        if (!appName && !clientId) {
             return null
         }
         return new App(
                 id: string(raw.id),
-                appName: string(raw.appName),
-                clientId: string(raw.clientId),
+                appName: appName,
+                clientId: clientId,
                 replyUrls: strings(raw.replyUrls),
                 logoutUrls: strings(raw.logoutUrls),
                 tenantGuid: string(raw.tenantGuid),
@@ -78,18 +90,16 @@ class Mappers {
     }
 
     static Tenant toTenant(Map raw) {
-        if (!raw?.guid && !raw?.name) {
+        String guid = string(raw?.guid)
+        String name = string(raw?.name)
+        if (!guid && !name) {
             return null
         }
         return new Tenant(
                 id: string(raw.id),
-                name: string(raw.name),
+                name: name,
                 domain: string(raw.domain),
-                guid: string(raw.guid))
-    }
-
-    static String isoDate(Date date) {
-        return date ? new SimpleDateFormat(ISO_FORMAT).format(date) : null
+                guid: guid)
     }
 
     private static List<String> strings(Object raw) {
@@ -125,10 +135,13 @@ class Mappers {
         if (!value) {
             return null
         }
-        for (String pattern in ["yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", ISO_FORMAT, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-                                "yyyy-MM-dd'T'HH:mm:ssXXX", "MMM d, yyyy, h:mm:ss a", "yyyy-MM-dd"]) {
+        for (Map.Entry<String, Boolean> entry in PARSE_PATTERNS) {
             try {
-                return new SimpleDateFormat(pattern).parse(value)
+                SimpleDateFormat format = new SimpleDateFormat(entry.key)
+                if (entry.value) {
+                    format.setTimeZone(UTC)
+                }
+                return format.parse(value)
             } catch (Exception ignored) {
             }
         }

@@ -5,6 +5,8 @@ import com.trevorism.model.Tenant
 import com.trevorism.model.User
 import org.junit.jupiter.api.Test
 
+import java.time.Instant
+
 class MappersTest {
 
     @Test
@@ -47,11 +49,22 @@ class MappersTest {
 
     @Test
     void testToUserParsesEpochMillisAndIsoDates() {
+        Date expected = Date.from(Instant.parse("2026-08-15T10:30:00Z"))
+
         assert Mappers.toUser([username: "a", dateCreated: 1700000000000L]).dateCreated == new Date(1700000000000L)
-        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T10:30:00Z"]).dateCreated != null
-        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T10:30:00.000Z"]).dateCreated != null
+        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T10:30:00Z"]).dateCreated == expected
+        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T10:30:00.000Z"]).dateCreated == expected
         assert Mappers.toUser([username: "a", dateCreated: "not a date"]).dateCreated == null
         assert Mappers.toUser([username: "a"]).dateCreated == null
+    }
+
+    @Test
+    void testAZuluTimestampIsNotShiftedByTheHostTimezone() {
+        Date expected = Date.from(Instant.parse("2026-08-15T10:30:00Z"))
+
+        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T10:30:00Z"]).dateCreated == expected
+        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T05:30:00-05:00"]).dateCreated == expected
+        assert Mappers.toUser([username: "a", dateCreated: "2026-08-15T10:30:00.000+00:00"]).dateCreated == expected
     }
 
     @Test
@@ -111,8 +124,10 @@ class MappersTest {
     }
 
     @Test
-    void testIsoDateFormatsAndToleratesNull() {
-        assert Mappers.isoDate(null) == null
-        assert Mappers.isoDate(new Date(0)).endsWith("Z")
+    void testAWhitespaceOnlyIdentifierIsTreatedAsMissing() {
+        assert Mappers.toUser([username: "   "]) == null
+        assert Mappers.toApp([appName: "   ", clientId: "  "]) == null
+        assert Mappers.toTenant([name: " ", guid: "   "]) == null
+        assert Mappers.toUsers(Mappers.parse('[{"username":"   "},{"username":"alice"}]')).size() == 1
     }
 }

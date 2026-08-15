@@ -76,6 +76,27 @@ describe('DataTable', () => {
     expect(usernames(wrapper)).toEqual(['bob', 'alice'])
   })
 
+  it('sorts from the keyboard on a focusable header', async () => {
+    const wrapper = mountTable()
+    const header = wrapper.findAll('thead th')[0]
+
+    expect(header.attributes('tabindex')).toBe('0')
+
+    await header.trigger('keydown.enter')
+    expect(usernames(wrapper)).toEqual(['alice', 'bob'])
+
+    await header.trigger('keydown.space')
+    expect(usernames(wrapper)).toEqual(['bob', 'alice'])
+  })
+
+  it('leaves an unsortable header out of the tab order', () => {
+    const wrapper = mountTable({
+      columns: [{ key: 'username', label: 'Username', sortable: false }, columns[1]]
+    })
+
+    expect(wrapper.findAll('thead th')[0].attributes('tabindex')).toBeUndefined()
+  })
+
   it('renders a per column slot override', () => {
     const wrapper = mountTable({}, { 'cell-username': '<b>overridden</b>' })
     expect(wrapper.html()).toContain('overridden')
