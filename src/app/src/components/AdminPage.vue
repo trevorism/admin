@@ -1,5 +1,6 @@
 <script>
 import { getWhoami } from '../utils/whoamiApi'
+import { describeError } from '../utils/errors'
 import AccessDenied from './AccessDenied.vue'
 import UsersTab from './UsersTab.vue'
 import AppsTab from './AppsTab.vue'
@@ -29,7 +30,7 @@ export default {
     try {
       this.whoami = await getWhoami()
     } catch (error) {
-      this.error = error?.response?.data?.error || 'Could not confirm your access.'
+      this.error = describeError(error, 'Could not confirm your access.')
     } finally {
       this.loading = false
     }

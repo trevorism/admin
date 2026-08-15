@@ -3,6 +3,7 @@ import DataTable from './DataTable.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PermissionEditor from './PermissionEditor.vue'
 import { describePermissions } from '../utils/permissions'
+import { describeError } from '../utils/errors'
 import {
   approveUser,
   deactivateUser,
@@ -117,7 +118,7 @@ export default {
       try {
         this.users = await listUsers()
       } catch (error) {
-        this.error = error?.response?.data?.error || 'Could not load users.'
+        this.error = describeError(error, 'Could not load users.')
       } finally {
         this.loading = false
       }
@@ -165,7 +166,7 @@ export default {
         await work()
         await this.refresh()
       } catch (error) {
-        this.error = error?.response?.data?.error || fallback
+        this.error = describeError(error, fallback)
       } finally {
         this.busyKey = null
       }

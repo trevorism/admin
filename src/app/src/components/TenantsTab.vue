@@ -1,6 +1,7 @@
 <script>
 import DataTable from './DataTable.vue'
 import { createTenant, getMyTenant, listTenants } from '../utils/tenantApi'
+import { describeError } from '../utils/errors'
 
 export default {
   components: { DataTable },
@@ -40,7 +41,7 @@ export default {
           this.myTenant = await getMyTenant()
         }
       } catch (error) {
-        this.error = error?.response?.data?.error || 'Could not load tenant information.'
+        this.error = describeError(error, 'Could not load tenant information.')
       } finally {
         this.loading = false
       }
@@ -60,7 +61,7 @@ export default {
           this.error = 'A tenant name is required.'
           return
         }
-        this.error = error?.response?.data?.error || 'Could not create the tenant.'
+        this.error = describeError(error, 'Could not create the tenant.')
       }
     }
   }

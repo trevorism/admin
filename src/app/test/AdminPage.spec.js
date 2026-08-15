@@ -79,4 +79,15 @@ describe('AdminPage', () => {
 
     expect(wrapper.text()).toContain('Session expired')
   })
+
+  // A stopped API is the most common local failure, and calling it an access
+  // problem sends you looking in entirely the wrong place.
+  it('says the server is unreachable rather than blaming access', async () => {
+    getWhoami.mockRejectedValue({ response: { status: 502, data: '' } })
+    const wrapper = mount(AdminPage, { props: { tab: 'users' }, global: { stubs } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Could not reach the server')
+    expect(wrapper.text()).not.toContain('Could not confirm your access')
+  })
 })

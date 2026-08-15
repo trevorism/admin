@@ -3,6 +3,7 @@ import DataTable from './DataTable.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import SecretReveal from './SecretReveal.vue'
 import { describePermissions, PERMISSION_OPTIONS, formatPermissions } from '../utils/permissions'
+import { describeError } from '../utils/errors'
 import { deleteApp, listApps, registerApp, rotateAppSecret } from '../utils/appApi'
 
 export default {
@@ -86,7 +87,7 @@ export default {
       try {
         this.apps = await listApps()
       } catch (error) {
-        this.error = error?.response?.data?.error || 'Could not load applications.'
+        this.error = describeError(error, 'Could not load applications.')
       } finally {
         this.loading = false
       }
@@ -157,7 +158,7 @@ export default {
       if (error?.message === 'app_name_required') {
         return 'An application name is required.'
       }
-      return error?.response?.data?.error || fallback
+      return describeError(error, fallback)
     }
   }
 }
