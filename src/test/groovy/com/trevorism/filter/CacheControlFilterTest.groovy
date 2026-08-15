@@ -57,8 +57,28 @@ class CacheControlFilterTest {
     }
 
     @Test
-    void testNonHtmlNonAssetRequestIsUntouched() {
-        HttpRequest<?> request = HttpRequest.GET("/api/ping").accept(MediaType.APPLICATION_JSON)
+    void testApiResponsesAreNeverStoredBecauseTheyCanCarryAClientSecret() {
+        HttpRequest<?> request = HttpRequest.GET("/api/app/c1/secret").accept(MediaType.APPLICATION_JSON)
+        MutableHttpResponse<?> response = HttpResponse.ok()
+
+        filter.applyCacheControl(request, response)
+
+        assert response.getHeaders().get(HttpHeaders.CACHE_CONTROL) == NO_STORE
+    }
+
+    @Test
+    void testApiResponsesAreNotStoredEvenWhenTheClientAcceptsHtml() {
+        HttpRequest<?> request = HttpRequest.GET("/api/user/").accept(MediaType.TEXT_HTML)
+        MutableHttpResponse<?> response = HttpResponse.ok()
+
+        filter.applyCacheControl(request, response)
+
+        assert response.getHeaders().get(HttpHeaders.CACHE_CONTROL) == NO_STORE
+    }
+
+    @Test
+    void testNonHtmlNonAssetNonApiRequestIsUntouched() {
+        HttpRequest<?> request = HttpRequest.GET("/favicon.ico").accept(MediaType.APPLICATION_JSON)
         MutableHttpResponse<?> response = HttpResponse.ok()
 
         filter.applyCacheControl(request, response)

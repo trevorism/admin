@@ -19,6 +19,8 @@ class CacheControlFilter {
         String path = request.path
         if (path.startsWith("/assets/")) {
             setCacheControl(response, isSuccess(response) ? IMMUTABLE : NO_STORE)
+        } else if (path.startsWith("/api/")) {
+            setCacheControl(response, NO_STORE)
         } else if (acceptsHtml(request)) {
             setCacheControl(response, NO_CACHE)
         }
