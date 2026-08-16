@@ -160,16 +160,21 @@ describe('DataTable', () => {
     expect(wrapper.find('tbody th').text()).toBe('Tenant b')
   })
 
-  it('sorts the ungrouped rows last', () => {
+  it('sorts the ungrouped rows first', () => {
     const wrapper = mountTable({
       groupBy: { key: 'tenant' },
       rows: [
-        { id: '1', username: 'bob', tenant: '' },
-        { id: '2', username: 'alice', tenant: 'a' }
+        { id: '1', username: 'bob', tenant: 'b' },
+        { id: '2', username: 'alice', tenant: '' },
+        { id: '3', username: 'carol', tenant: 'a' }
       ]
     })
 
-    expect(wrapper.findAll('tbody th').map((heading) => heading.text())).toEqual(['a', 'Ungrouped'])
+    expect(wrapper.findAll('tbody th').map((heading) => heading.text())).toEqual([
+      'Ungrouped',
+      'a',
+      'b'
+    ])
   })
 
   it('spans the group heading across the actions column too', () => {
@@ -190,6 +195,34 @@ describe('DataTable', () => {
     const cell = wrapper.find('tbody td').text()
     expect(cell).not.toContain('T10:30')
     expect(cell).toContain('2026')
+  })
+
+  it('highlights an expiry column by how close it is', () => {
+    const day = 24 * 60 * 60 * 1000
+    const wrapper = mountTable({
+      columns: [{ key: 'dateExpired', label: 'Expires', type: 'expiry' }],
+      rows: [
+        { id: '1', dateExpired: new Date(Date.now() - day).toISOString() },
+        { id: '2', dateExpired: new Date(Date.now() + 3 * day).toISOString() },
+        { id: '3', dateExpired: new Date(Date.now() + 90 * day).toISOString() },
+        { id: '4', dateExpired: null }
+      ]
+    })
+
+    const colours = wrapper.findAll('tbody td').map((cell) => {
+      const badge = cell.find('span')
+      return badge.exists() ? badge.attributes('data-color') : ''
+    })
+    expect(colours).toEqual(['danger', 'warning', '', ''])
+  })
+
+  it('still shows the date itself on a highlighted expiry', () => {
+    const wrapper = mountTable({
+      columns: [{ key: 'dateExpired', label: 'Expires', type: 'expiry' }],
+      rows: [{ id: '1', dateExpired: '2020-03-04T00:00:00.000Z' }]
+    })
+
+    expect(wrapper.find('tbody td').text()).toContain('2020')
   })
 
   it('emits refresh when the refresh button is pressed', async () => {

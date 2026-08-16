@@ -19,4 +19,20 @@ function formatDate(value) {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-export { formatDate }
+const EXPIRING_SOON_MS = 14 * 24 * 60 * 60 * 1000
+
+function expiryStatus(value, now = Date.now()) {
+  if (value === null || value === undefined || value === '') {
+    return ''
+  }
+  const date = toDate(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  if (date.getTime() <= now) {
+    return 'expired'
+  }
+  return date.getTime() - now < EXPIRING_SOON_MS ? 'expiring' : ''
+}
+
+export { formatDate, expiryStatus }

@@ -2,6 +2,8 @@ package com.trevorism.controller
 
 import com.trevorism.model.ApproveRequest
 import com.trevorism.model.PermissionsRequest
+import com.trevorism.model.RegisterUserRequest
+import com.trevorism.model.RegisteredUser
 import com.trevorism.model.User
 import com.trevorism.model.UsernameRequest
 import com.trevorism.secure.Roles
@@ -42,6 +44,17 @@ class UserController {
         return respond("Unable to list users") {
             List<User> users = adminUserService.listUsers(CallerContext.from(authentication))
             HttpResponse.ok(users)
+        }
+    }
+
+    @Tag(name = "User Operations")
+    @Operation(summary = "Registers a pending user in the caller's tenant and returns the generated password **Secure")
+    @Post(value = "/", produces = MediaType.APPLICATION_JSON, consumes = MediaType.APPLICATION_JSON)
+    @Secure(Roles.TENANT_ADMIN)
+    HttpResponse<?> register(@Body RegisterUserRequest request, Authentication authentication) {
+        return respond("Unable to register the user") {
+            RegisteredUser registered = adminUserService.register(request, CallerContext.from(authentication))
+            HttpResponse.ok(registered)
         }
     }
 

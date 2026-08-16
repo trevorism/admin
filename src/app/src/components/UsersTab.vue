@@ -2,18 +2,21 @@
 import DataTable from './DataTable.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import PermissionEditor from './PermissionEditor.vue'
-import { describePermissions } from '../utils/permissions'
+import SecretReveal from './SecretReveal.vue'
+import { describePermissions, PERMISSION_OPTIONS, formatPermissions } from '../utils/permissions'
 import { listTenants } from '../utils/tenantApi'
+import { WARNING_STRONG } from '../utils/theme'
 import {
   approveUser,
   deactivateUser,
   deleteUser,
   listUsers,
+  registerUser,
   updateUserPermissions
 } from '../utils/userApi'
 
 export default {
-  components: { DataTable, ConfirmDialog, PermissionEditor },
+  components: { DataTable, ConfirmDialog, PermissionEditor, SecretReveal },
   props: {
     whoami: { type: Object, required: true }
   },
@@ -21,6 +24,7 @@ export default {
     return {
       users: [],
       tenantNames: {},
+      warningStrong: WARNING_STRONG,
       loading: false,
       error: '',
       busyKey: null,
@@ -28,7 +32,13 @@ export default {
       approveAsAdmin: false,
       deactivateTarget: null,
       deleteTarget: null,
-      permissionTarget: null
+      permissionTarget: null,
+      permissionOptions: PERMISSION_OPTIONS,
+      registerOpen: false,
+      registerForm: { username: '', email: '', permissions: [] },
+      revealOpen: false,
+      revealUsername: '',
+      revealPassword: ''
     }
   },
   computed: {
@@ -40,7 +50,7 @@ export default {
         { key: 'active', label: 'Active' },
         { key: 'permissions', label: 'Permissions' },
         { key: 'dateCreated', label: 'Created', type: 'date' },
-        { key: 'dateExpired', label: 'Expires', type: 'date' }
+        { key: 'dateExpired', label: 'Expires', type: 'expiry' }
       ]
     },
     searchFields() {
@@ -149,6 +159,40 @@ export default {
       }
       return this.tenantNames[guid] || guid
     },
+    openRegister() {
+      this.registerForm = { username: '', email: '', permissions: [] }
+      this.registerOpen = true
+    },
+    async submitRegister() {
+      this.error = ''
+      try {
+        const registered = await registerUser({
+          username: this.registerForm.username,
+          email: this.registerForm.email,
+          permissions: formatPermissions(this.registerForm.permissions)
+        })
+        this.registerOpen = false
+        this.revealUsername = registered.username || this.registerForm.username
+        this.revealPassword = registered.password
+        this.revealOpen = true
+        await this.refresh()
+      } catch (error) {
+        this.error = this.registerMessageFor(error)
+      }
+    },
+    registerMessageFor(error) {
+      if (error?.message === 'username_required') {
+        return 'A username is required.'
+      }
+      if (error?.message === 'email_required') {
+        return 'An email address is required.'
+      }
+      return error?.response?.data?.error || 'Could not register the user.'
+    },
+    clearPassword() {
+      this.revealPassword = ''
+      this.revealUsername = ''
+    },
     // A global admin reads across every tenant, but delete only reaches their own
     // namespace, so the action is hidden rather than offered and then refused.
     canDelete(row) {
@@ -217,6 +261,10 @@ export default {
       empty-text="No users are visible to you."
       @refresh="refresh"
     >
+      <template #toolbar>
+        <va-button size="small" color="primary" icon="add" @click="openRegister">Register user</va-button>
+      </template>
+
       <template #group-header="{ group }">
         <span class="group-name">{{ group.label }}</span>
         <code v-if="group.value && group.label !== group.value" class="group-guid">{{ group.value }}</code>
@@ -250,7 +298,7 @@ export default {
           v-if="row.active"
           size="small"
           preset="secondary"
-          color="warning"
+          :color="warningStrong"
           :loading="busyKey === row.username"
           @click="deactivateTarget = row"
         >
@@ -270,6 +318,42 @@ export default {
         </va-button>
       </template>
     </data-table>
+
+    <va-modal v-model="registerOpen" title="Register user" hide-default-actions>
+      <div class="register-form">
+        <va-input v-model="registerForm.username" label="Username" />
+        <va-input v-model="registerForm.email" label="Email" />
+        <div class="register-permissions">
+          <span class="register-label">Permissions</span>
+          <va-checkbox
+            v-for="option in permissionOptions"
+            :key="option.value"
+            v-model="registerForm.permissions"
+            :array-value="option.value"
+            :label="`${option.label} (${option.value})`"
+          />
+        </div>
+        <p class="register-note">
+          The user is created pending approval and cannot sign in until it is approved. Permissions
+          can be adjusted at any time afterwards.
+        </p>
+      </div>
+      <template #footer>
+        <div class="register-actions">
+          <va-button preset="secondary" color="secondary" @click="registerOpen = false">Cancel</va-button>
+          <va-button color="primary" @click="submitRegister">Register</va-button>
+        </div>
+      </template>
+    </va-modal>
+
+    <secret-reveal
+      v-model="revealOpen"
+      title="Temporary password"
+      noun="password"
+      :subject="revealUsername"
+      :secret="revealPassword"
+      @cleared="clearPassword"
+    />
 
     <va-modal
       v-model="approveDialogOpen"
@@ -325,6 +409,34 @@ export default {
 </template>
 
 <style scoped>
+.register-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.register-permissions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.register-label {
+  font-size: 0.875rem;
+  color: var(--va-secondary);
+}
+
+.register-note {
+  color: var(--va-secondary);
+  font-size: 0.875rem;
+}
+
+.register-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 .group-name {
   font-weight: 600;
 }

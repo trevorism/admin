@@ -6,6 +6,7 @@ import {
   deactivateUser,
   deleteUser,
   listUsers,
+  registerUser,
   updateUserPermissions
 } from '../src/utils/userApi'
 import { listTenants } from '../src/utils/tenantApi'
@@ -13,6 +14,7 @@ import { stubs } from './stubs'
 
 vi.mock('../src/utils/userApi', () => ({
   listUsers: vi.fn(),
+  registerUser: vi.fn(),
   approveUser: vi.fn(),
   deactivateUser: vi.fn(),
   updateUserPermissions: vi.fn(),
@@ -63,6 +65,7 @@ describe('UsersTab', () => {
     updateUserPermissions.mockReset().mockResolvedValue()
     deleteUser.mockReset().mockResolvedValue()
     listTenants.mockReset().mockResolvedValue([])
+    registerUser.mockReset().mockResolvedValue({ username: 'jsmith', password: 'generated-secret' })
   })
 
   it('lists the users it loaded', async () => {
@@ -225,11 +228,96 @@ describe('UsersTab', () => {
     expect(wrapper.find('tbody th').text()).toContain('No tenant')
   })
 
+  it('puts the tenantless users above every named tenant', async () => {
+    listTenants.mockResolvedValue([{ guid: 'g-a', name: 'Acme' }])
+    const wrapper = await mountTab([
+      user({ username: 'alice', tenant: 'g-a' }),
+      user({ username: 'bob', tenant: '' })
+    ])
+
+    const headings = wrapper.findAll('tbody th').map((heading) => heading.text())
+    expect(headings[0]).toContain('No tenant')
+    expect(headings[1]).toContain('Acme')
+  })
+
   it('keeps the tenant searchable for a global admin now the column is gone', async () => {
     const wrapper = await mountTab([user()])
 
     expect(wrapper.vm.columns.map((column) => column.key)).not.toContain('tenant')
     expect(wrapper.vm.searchFields).toContain('tenant')
+  })
+
+  it('offers a register action', async () => {
+    const wrapper = await mountTab([user()])
+    expect(buttonWithText(wrapper, 'Register user')).toBeTruthy()
+  })
+
+  it('registers with the collected fields and the permissions as letters', async () => {
+    const wrapper = await mountTab([user()])
+
+    wrapper.vm.registerForm = { username: 'jsmith', email: 'jsmith@acme.com', permissions: ['R', 'C'] }
+    await wrapper.vm.submitRegister()
+
+    expect(registerUser).toHaveBeenCalledWith({
+      username: 'jsmith',
+      email: 'jsmith@acme.com',
+      permissions: 'CR'
+    })
+  })
+
+  it('reveals the generated password once and reloads the list', async () => {
+    const wrapper = await mountTab([user()])
+
+    wrapper.vm.registerForm = { username: 'jsmith', email: 'jsmith@acme.com', permissions: [] }
+    await wrapper.vm.submitRegister()
+    await flushPromises()
+
+    expect(wrapper.vm.revealOpen).toBe(true)
+    expect(wrapper.vm.revealPassword).toBe('generated-secret')
+    expect(wrapper.text()).toContain('generated-secret')
+    expect(listUsers).toHaveBeenCalledTimes(2)
+  })
+
+  it('forgets the password once the reveal is dismissed', async () => {
+    const wrapper = await mountTab([user()])
+
+    wrapper.vm.registerForm = { username: 'jsmith', email: 'jsmith@acme.com', permissions: [] }
+    await wrapper.vm.submitRegister()
+    wrapper.vm.clearPassword()
+
+    expect(wrapper.vm.revealPassword).toBe('')
+    expect(wrapper.vm.revealUsername).toBe('')
+  })
+
+  it('says the new user is pending approval rather than implying it can sign in', async () => {
+    const wrapper = await mountTab([user()])
+
+    wrapper.vm.registerOpen = true
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('pending approval')
+  })
+
+  it('reports a missing field without calling the server', async () => {
+    const wrapper = await mountTab([user()])
+    registerUser.mockRejectedValue(new Error('email_required'))
+
+    wrapper.vm.registerForm = { username: 'jsmith', email: '', permissions: [] }
+    await wrapper.vm.submitRegister()
+
+    expect(wrapper.vm.error).toBe('An email address is required.')
+    expect(wrapper.vm.revealOpen).toBe(false)
+  })
+
+  it('surfaces the server message when registration is refused', async () => {
+    const wrapper = await mountTab([user()])
+    registerUser.mockRejectedValue({ response: { data: { error: 'Duplicate detected' } } })
+
+    wrapper.vm.registerForm = { username: 'jsmith', email: 'jsmith@acme.com', permissions: [] }
+    await wrapper.vm.submitRegister()
+
+    expect(wrapper.vm.error).toBe('Duplicate detected')
+    expect(wrapper.vm.revealOpen).toBe(false)
   })
 
   it('shows a plain date instead of the raw timestamp', async () => {

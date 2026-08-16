@@ -4,6 +4,7 @@ import ConfirmDialog from './ConfirmDialog.vue'
 import SecretReveal from './SecretReveal.vue'
 import { describePermissions, PERMISSION_OPTIONS, formatPermissions } from '../utils/permissions'
 import { deleteApp, listApps, registerApp, rotateAppSecret } from '../utils/appApi'
+import { WARNING_STRONG } from '../utils/theme'
 
 export default {
   components: { DataTable, ConfirmDialog, SecretReveal },
@@ -13,6 +14,7 @@ export default {
   data() {
     return {
       apps: [],
+      warningStrong: WARNING_STRONG,
       loading: false,
       error: '',
       busyKey: null,
@@ -39,7 +41,7 @@ export default {
         base.push({ key: 'tenant', label: 'Tenant' })
       }
       base.push({ key: 'dateCreated', label: 'Created', type: 'date' })
-      base.push({ key: 'dateExpired', label: 'Expires', type: 'date' })
+      base.push({ key: 'dateExpired', label: 'Expires', type: 'expiry' })
       return base
     },
     facets() {
@@ -197,7 +199,7 @@ export default {
         <va-button
           size="small"
           preset="secondary"
-          color="warning"
+          :color="warningStrong"
           :loading="busyKey === row.clientId"
           @click="rotateTarget = row"
         >
@@ -268,8 +270,8 @@ export default {
 
     <secret-reveal
       v-model="revealOpen"
-      :app-name="revealAppName"
-      :client-id="revealClientId"
+      :subject="revealAppName"
+      :detail="revealClientId"
       :secret="revealSecret"
       @cleared="clearSecret"
     />

@@ -6,6 +6,7 @@ import {
   deleteUser,
   listUsers,
   mapUser,
+  registerUser,
   updateUserPermissions
 } from '../src/utils/userApi'
 import { listApps, mapApp, registerApp, rotateAppSecret, toUrlList } from '../src/utils/appApi'
@@ -24,6 +25,29 @@ beforeEach(() => {
 })
 
 describe('userApi', () => {
+  it('registers a user and returns the one time password', async () => {
+    axios.post.mockResolvedValue({ data: { username: 'jsmith', password: 'generated' } })
+
+    const result = await registerUser({
+      username: ' jsmith ',
+      email: ' jsmith@acme.com ',
+      permissions: 'CR'
+    })
+
+    expect(axios.post).toHaveBeenCalledWith('/api/user/', {
+      username: 'jsmith',
+      email: 'jsmith@acme.com',
+      permissions: 'CR'
+    })
+    expect(result).toEqual({ username: 'jsmith', password: 'generated' })
+  })
+
+  it('requires a username and an email before registering', async () => {
+    await expect(registerUser({ username: '  ', email: 'a@b.c' })).rejects.toThrow('username_required')
+    await expect(registerUser({ username: 'jsmith', email: ' ' })).rejects.toThrow('email_required')
+    expect(axios.post).not.toHaveBeenCalled()
+  })
+
   it('lists users and drops records without a username', async () => {
     axios.get.mockResolvedValue({ data: [{ username: 'alice' }, { email: 'x@y.z' }] })
 

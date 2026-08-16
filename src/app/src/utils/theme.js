@@ -1,0 +1,3 @@
+const WARNING_STRONG = '#b45309'
+
+export { WARNING_STRONG }

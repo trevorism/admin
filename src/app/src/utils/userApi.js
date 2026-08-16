@@ -25,6 +25,21 @@ async function listUsers() {
   return users.map(mapUser).filter(Boolean)
 }
 
+async function registerUser({ username, email, permissions }) {
+  if (!username?.trim()) {
+    throw new Error('username_required')
+  }
+  if (!email?.trim()) {
+    throw new Error('email_required')
+  }
+  const response = await axios.post(`${USER_BASE}/`, {
+    username: username.trim(),
+    email: email.trim(),
+    permissions: permissions || ''
+  })
+  return { username: response.data?.username || '', password: response.data?.password || '' }
+}
+
 async function approveUser(username, admin) {
   if (!username) {
     throw new Error('username_required')
@@ -56,4 +71,12 @@ async function deleteUser(username) {
   await axios.delete(`${USER_BASE}/${encodeURIComponent(username)}`)
 }
 
-export { listUsers, approveUser, deactivateUser, updateUserPermissions, deleteUser, mapUser }
+export {
+  listUsers,
+  registerUser,
+  approveUser,
+  deactivateUser,
+  updateUserPermissions,
+  deleteUser,
+  mapUser
+}

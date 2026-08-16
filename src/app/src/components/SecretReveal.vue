@@ -2,8 +2,10 @@
 export default {
   props: {
     modelValue: { type: Boolean, default: false },
-    appName: { type: String, default: '' },
-    clientId: { type: String, default: '' },
+    title: { type: String, default: 'Client secret' },
+    noun: { type: String, default: 'secret' },
+    subject: { type: String, default: '' },
+    detail: { type: String, default: '' },
     secret: { type: String, default: '' }
   },
   emits: ['update:modelValue', 'cleared'],
@@ -41,29 +43,29 @@ export default {
 <template>
   <va-modal
     :model-value="modelValue"
-    title="Client secret"
+    :title="title"
     hide-default-actions
     :no-dismiss="true"
     @update:modelValue="$emit('update:modelValue', $event)"
   >
     <va-alert color="warning" class="mb-4">
-      This is the only time this secret will be shown. Copy it now — it cannot be retrieved again.
+      This is the only time this {{ noun }} will be shown. Copy it now — it cannot be retrieved again.
     </va-alert>
 
     <p class="secret-subject">
-      <strong>{{ appName }}</strong>
-      <span v-if="clientId"> · {{ clientId }}</span>
+      <strong>{{ subject }}</strong>
+      <span v-if="detail"> · {{ detail }}</span>
     </p>
 
     <code class="secret-box">{{ secret }}</code>
 
     <div class="secret-copy">
       <va-button size="small" preset="secondary" icon="content_copy" @click="copy">
-        {{ copied ? 'Copied' : 'Copy secret' }}
+        {{ copied ? 'Copied' : `Copy ${noun}` }}
       </va-button>
     </div>
 
-    <va-checkbox v-model="acknowledged" label="I have copied this secret" class="secret-ack" />
+    <va-checkbox v-model="acknowledged" :label="`I have copied this ${noun}`" class="secret-ack" />
 
     <template #footer>
       <div class="secret-actions">

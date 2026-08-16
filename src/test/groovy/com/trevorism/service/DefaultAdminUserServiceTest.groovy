@@ -2,6 +2,8 @@ package com.trevorism.service
 
 import com.trevorism.data.Repository
 import com.trevorism.https.SecureHttpClient
+import com.trevorism.model.RegisterUserRequest
+import com.trevorism.model.RegisteredUser
 import com.trevorism.model.User
 import com.trevorism.secure.Roles
 import groovy.json.JsonSlurper
@@ -228,5 +230,102 @@ class DefaultAdminUserServiceTest {
         svc.approve("ALICE", false, caller(Roles.TENANT_ADMIN, "t1"))
 
         assert new JsonSlurper().parseText(body).username == "alice"
+    }
+
+    @Test
+    void testRegisterPostsToTheCallersOwnTenantAndReturnsTheGeneratedPassword() {
+        String requested = null
+        String body = null
+        def svc = service([post: { String url, String posted -> requested = url; body = posted; "{}" }])
+
+        RegisteredUser registered = svc.register(
+                new RegisterUserRequest(username: "Alice", email: "Alice@Trevorism.com", permissions: "CR"),
+                caller(Roles.TENANT_ADMIN, "t1"))
+
+        assert requested == "https://auth.trevorism.com/user/"
+        def sent = new JsonSlurper().parseText(body)
+        assert sent.username == "alice"
+        assert sent.email == "alice@trevorism.com"
+        assert sent.tenantGuid == "t1"
+        assert sent.permissions == "CR"
+        assert registered.username == "alice"
+        assert registered.password == sent.password
+        assert registered.password
+    }
+
+    @Test
+    void testRegisterLeavesTheUserPendingApproval() {
+        String body = null
+        def svc = service([post: { String url, String posted -> body = posted; "{}" }])
+
+        svc.register(new RegisterUserRequest(username: "alice", email: "alice@trevorism.com"),
+                caller(Roles.TENANT_ADMIN, "t1"))
+
+        assert new JsonSlurper().parseText(body).autoRegister == false
+    }
+
+    @Test
+    void testRegisterNeverCallsActivate() {
+        List<String> posted = []
+        def svc = service([post: { String url, String body -> posted << url; "{}" }])
+
+        svc.register(new RegisterUserRequest(username: "alice", email: "alice@trevorism.com"),
+                caller(Roles.TENANT_ADMIN, "t1"))
+
+        assert posted == ["https://auth.trevorism.com/user/"]
+    }
+
+    @Test
+    void testEachRegistrationGeneratesADifferentPassword() {
+        def svc = service([post: { String url, String body -> "{}" }])
+        def request = new RegisterUserRequest(username: "alice", email: "alice@trevorism.com")
+
+        String first = svc.register(request, caller(Roles.TENANT_ADMIN, "t1")).password
+        String second = svc.register(request, caller(Roles.TENANT_ADMIN, "t1")).password
+
+        assert first != second
+        assert first.length() >= 6
+    }
+
+    @Test
+    void testRegisterRefusesAShortUsernameBeforeAnyDownstreamCall() {
+        boolean called = false
+        def svc = service([post: { String url, String body -> called = true; "{}" }])
+
+        def thrown = assertThrows(DownstreamException) {
+            svc.register(new RegisterUserRequest(username: "ab", email: "ab@trevorism.com"),
+                    caller(Roles.TENANT_ADMIN, "t1"))
+        }
+
+        assert thrown.status == 400
+        assert !called
+    }
+
+    @Test
+    void testRegisterRefusesAnAddressThatIsNotAnEmail() {
+        boolean called = false
+        def svc = service([post: { String url, String body -> called = true; "{}" }])
+
+        def thrown = assertThrows(DownstreamException) {
+            svc.register(new RegisterUserRequest(username: "alice", email: "alice"),
+                    caller(Roles.TENANT_ADMIN, "t1"))
+        }
+
+        assert thrown.status == 400
+        assert !called
+    }
+
+    @Test
+    void testRegisterIsRefusedForAPlainUser() {
+        boolean called = false
+        def svc = service([post: { String url, String body -> called = true; "{}" }])
+
+        def thrown = assertThrows(DownstreamException) {
+            svc.register(new RegisterUserRequest(username: "alice", email: "alice@trevorism.com"),
+                    caller(Roles.USER, "t1"))
+        }
+
+        assert thrown.status == 403
+        assert !called
     }
 }

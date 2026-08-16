@@ -1,12 +1,14 @@
 <script>
 import { filterRows, nextSortDirection, sortRows } from '../utils/sortFilter'
-import { formatDate } from '../utils/dateFormat'
+import { expiryStatus, formatDate } from '../utils/dateFormat'
+
+const EXPIRY_COLORS = { expired: 'danger', expiring: 'warning' }
 
 function compareGroups(left, right) {
-  if (left.value && !right.value) {
+  if (!left.value && right.value) {
     return -1
   }
-  if (!left.value && right.value) {
+  if (left.value && !right.value) {
     return 1
   }
   return left.label.localeCompare(right.label, undefined, { numeric: true, sensitivity: 'base' })
@@ -82,6 +84,12 @@ export default {
       }
       return value || 'Ungrouped'
     },
+    expiryColor(row, column) {
+      if (column.type !== 'expiry') {
+        return ''
+      }
+      return EXPIRY_COLORS[expiryStatus(row?.[column.key])] || ''
+    },
     keyFor(row, index) {
       return row?.[this.rowKey] ?? index
     },
@@ -110,7 +118,7 @@ export default {
       if (value === null || value === undefined) {
         return ''
       }
-      if (column.type === 'date') {
+      if (column.type === 'date' || column.type === 'expiry') {
         return formatDate(value)
       }
       if (typeof value === 'boolean') {
@@ -182,7 +190,12 @@ export default {
             <tr v-for="(row, index) in group.rows" :key="keyFor(row, index)">
               <td v-for="column in columns" :key="column.key">
                 <slot :name="`cell-${column.key}`" :row="row" :value="row[column.key]">
-                  {{ display(row, column) }}
+                  <va-badge
+                    v-if="expiryColor(row, column)"
+                    :color="expiryColor(row, column)"
+                    :text="display(row, column)"
+                  />
+                  <template v-else>{{ display(row, column) }}</template>
                 </slot>
               </td>
               <td v-if="$slots.actions">

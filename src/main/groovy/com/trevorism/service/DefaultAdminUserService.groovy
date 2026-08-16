@@ -3,13 +3,21 @@ package com.trevorism.service
 import com.trevorism.data.FastDatastoreRepository
 import com.trevorism.data.Repository
 import com.trevorism.https.SecureHttpClient
+import com.trevorism.model.RegisterUserRequest
+import com.trevorism.model.RegisteredUser
 import com.trevorism.model.User
 import groovy.json.JsonOutput
 import jakarta.inject.Named
 import jakarta.inject.Singleton
 
+import java.security.SecureRandom
+
 @Singleton
 class DefaultAdminUserService implements AdminUserService {
+
+    private static final int MINIMUM_USERNAME_LENGTH = 3
+    private static final int GENERATED_PASSWORD_BYTES = 24
+    private static final SecureRandom RANDOM = new SecureRandom()
 
     private final SecureHttpClient callerClient
     private final Repository<User> allTenantsRepository
@@ -29,6 +37,34 @@ class DefaultAdminUserService implements AdminUserService {
         return Downstream.call("Unable to list users") {
             Mappers.toUsers(Mappers.parse(callerClient.get("${Endpoints.AUTH_PROVIDER}/user/")))
         }
+    }
+
+    @Override
+    RegisteredUser register(RegisterUserRequest request, CallerContext caller) {
+        requireAdministrator(caller)
+
+        String username = request?.username?.trim()?.toLowerCase()
+        String email = request?.email?.trim()?.toLowerCase()
+        if (!username || username.length() < MINIMUM_USERNAME_LENGTH) {
+            throw new DownstreamException(400, "A username of at least ${MINIMUM_USERNAME_LENGTH} characters is required")
+        }
+        if (!email || !email.contains("@")) {
+            throw new DownstreamException(400, "A valid email address is required")
+        }
+
+        String password = generatePassword()
+        String body = JsonOutput.toJson([username                          : username,
+                                         password                          : password,
+                                         email                             : email,
+                                         tenantGuid                        : caller.tenant,
+                                         permissions                       : request.permissions ?: null,
+                                         autoRegister                      : false,
+                                         doNotNotifySiteAdminOfRegistration: true])
+
+        Downstream.call("Unable to register ${username}") {
+            callerClient.post("${Endpoints.AUTH_PROVIDER}/user/", body)
+        }
+        return new RegisteredUser(username: username, password: password)
     }
 
     @Override
@@ -96,6 +132,12 @@ class DefaultAdminUserService implements AdminUserService {
             throw new DownstreamException(404, "No user named ${username}")
         }
         return target
+    }
+
+    private static String generatePassword() {
+        byte[] bytes = new byte[GENERATED_PASSWORD_BYTES]
+        RANDOM.nextBytes(bytes)
+        return Base64.urlEncoder.withoutPadding().encodeToString(bytes)
     }
 
     private static void requireAdministrator(CallerContext caller) {
