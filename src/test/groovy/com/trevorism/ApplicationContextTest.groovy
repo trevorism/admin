@@ -9,7 +9,6 @@ import com.trevorism.https.SecureHttpClient
 import com.trevorism.service.AdminAppService
 import com.trevorism.service.AdminTenantService
 import com.trevorism.service.AdminUserService
-import com.trevorism.service.UserSessionService
 import io.micronaut.context.ApplicationContext
 import io.micronaut.inject.qualifiers.Qualifiers
 import org.junit.jupiter.api.AfterAll
@@ -35,7 +34,6 @@ class ApplicationContextTest {
         assert context.getBeanDefinition(AdminUserService)
         assert context.getBeanDefinition(AdminAppService)
         assert context.getBeanDefinition(AdminTenantService)
-        assert context.getBeanDefinition(UserSessionService)
     }
 
     @Test

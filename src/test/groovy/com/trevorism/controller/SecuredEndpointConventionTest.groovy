@@ -60,10 +60,4 @@ class SecuredEndpointConventionTest {
         assert !TenantController.declaredMethods.any { it.isAnnotationPresent(Delete) }
     }
 
-    @Test
-    void testRefreshStaysUnsecuredBecauseItAuthenticatesWithTheRefreshCookie() {
-        routes(RefreshController).each { Method method ->
-            assert method.getAnnotation(Secure) == null
-        }
-    }
 }

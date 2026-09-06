@@ -104,6 +104,8 @@ class MappersTest {
 
     @Test
     void testToTenantRequiresANameOrGuid() {
+        assert Mappers.toTenant([name: "Acme", billingMode: "SUBSCRIPTION"]).billingMode == "SUBSCRIPTION"
+        assert Mappers.toTenant([name: "Acme"]).billingMode == "UNBILLED"
         assert Mappers.toTenant([name: "Acme"]) != null
         assert Mappers.toTenant([guid: "g1"]) != null
         assert Mappers.toTenant([id: "1"]) == null
