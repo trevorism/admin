@@ -99,7 +99,8 @@ class Mappers {
                 id: string(raw.id),
                 name: name,
                 domain: string(raw.domain),
-                guid: guid)
+                guid: guid,
+                billingMode: string(raw.billingMode) ?: "UNBILLED")
     }
 
     private static List<String> strings(Object raw) {

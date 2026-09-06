@@ -22,6 +22,7 @@ export default {
       return [
         { key: 'name', label: 'Name' },
         { key: 'domain', label: 'Domain' },
+        { key: 'billingMode', label: 'Billing' },
         { key: 'guid', label: 'Guid' }
       ]
     }
