@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { isLoggedIn, loginUrlFor } from '../utils/auth'
 import AdminPage from '../components/AdminPage.vue'
 
 const routes = [
@@ -26,24 +25,15 @@ const routes = [
   }
 ]
 
-// Signed-in only. Deliberately not gated on the admin cookie: it cannot tell a
-// global admin from a tenant admin, it is forgeable, and it is never re-set by a
-// refresh. A signed-in non-administrator must reach AdminPage and see the denial,
+// Signed-in only, which is all the guard from @trevorism/ui-auth does. Deliberately
+// not gated on being an administrator: that cannot tell a global admin from a tenant
+// admin, and a signed-in non-administrator must reach AdminPage and see the denial,
 // because redirecting them to login would loop on their still-valid session.
-function authGuard(to) {
-  if (!to.meta?.requiresAuth || isLoggedIn()) {
-    return true
-  }
-  window.location.assign(loginUrlFor(window.location.origin + to.fullPath))
-  return false
-}
-
+// Authorization comes from /api/whoami and the signed token behind it.
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 
-router.beforeEach(authGuard)
-
 export default router
-export { routes, authGuard }
+export { routes }

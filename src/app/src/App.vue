@@ -1,5 +1,5 @@
 <script setup>
-import MenuBar from '@trevorism/ui-header-bar'
+import { MenuBar } from '@trevorism/ui-header-bar'
 </script>
 
 <template>
